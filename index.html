@@ -1137,9 +1137,9 @@
 // ══════════════════════════════════════════════════
 
 // ── CONFIGURATION ────────────────────────────────
-var SERVER_IP   = 'solarview-server1-production.up.railway.app';
-var SERVER_PORT = 3000;
-var SERVER_URL  = 'https://' + SERVER_IP + '/data';
+var SERVER_IP   = window.location.hostname;
+var SERVER_PORT = 443;
+var SERVER_URL  = window.location.protocol + '//' + window.location.hostname + '/data';
 var useRealData = false;
 var prevVals    = {};
 var readCount   = 0;
