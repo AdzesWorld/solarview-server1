@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SolarView — ESP32 Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0d16;
+    --bg2: #111827;
+    --bg3: #131928;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #475569;
+    --text4: #334155;
+    --amber: #f59e0b;
+    --amber-l: #fbbf24;
+    --blue: #3b82f6;
+    --blue-l: #60a5fa;
+    --purple: #a855f7;
+    --purple-l: #c084fc;
+    --orange: #f97316;
+    --orange-l: #fb923c;
+    --red: #ef4444;
+    --red-l: #f87171;
+    --green: #22c55e;
+    --green-l: #4ade80;
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+  #login-screen.active { display: flex !important; }
+  #app-screen.active { display: flex !important; }
+
+  /* Page content inside app */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ══════════════════════════════════
+     LOGIN
+  ══════════════════════════════════ */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  #login-screen::before {
+    content: '';
+    position: absolute;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%);
+    top: -100px; right: -100px;
+    pointer-events: none;
+  }
+
+  #login-screen::after {
+    content: '';
+    position: absolute;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(168,85,247,0.05) 0%, transparent 70%);
+    bottom: -80px; left: -80px;
+    pointer-events: none;
+  }
+
+  .login-box {
+    width: 100%;
+    max-width: 400px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .login-logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+
+  .logo-icon {
+    width: 52px; height: 52px;
+    background: var(--amber);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .logo-icon i { font-size: 26px; color: #1a0e00; }
+
+  .logo-text h1 { font-size: 22px; font-weight: 700; color: #f1f5f9; }
+  .logo-text p { font-size: 13px; color: var(--text3); font-family: 'Space Mono', monospace; }
+
+  .login-card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border2);
+    border-radius: 20px;
+    padding: 28px;
+  }
+
+  .form-title { font-size: 17px; font-weight: 600; color: #f1f5f9; margin-bottom: 20px; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+
+  .inp-wrap { position: relative; }
+  .inp-wrap i { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 17px; color: var(--text3); cursor: pointer; }
+
+  input[type=text], input[type=email], input[type=password], input[type=number], input[type=date] {
+    width: 100%;
+    background: var(--bg);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: rgba(245,158,11,0.5); }
+  input::placeholder { color: var(--text4); }
+
+  .inp-pr { padding-right: 40px !important; }
+
+  .forgot { font-size: 12px; color: var(--amber); cursor: pointer; text-align: right; margin-bottom: 16px; }
+  .forgot:hover { opacity: 0.8; }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 12px;
+    border-radius: var(--radius-sm);
+    border: none; cursor: pointer;
+    font-size: 14px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-bottom: 10px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--amber); color: #1a0e00; }
+  .btn-outline { background: transparent; border: 0.5px solid var(--border2); color: var(--text2); }
+  .btn-outline:hover { background: rgba(255,255,255,0.04); }
+  .btn-danger { background: rgba(239,68,68,0.12); color: var(--red-l); border: 0.5px solid rgba(239,68,68,0.2); }
+  .btn-success { background: rgba(74,222,128,0.12); color: var(--green-l); border: 0.5px solid rgba(74,222,128,0.2); }
+  .btn-sm { padding: 8px 16px; font-size: 13px; width: auto; }
+
+  .err-msg { font-size: 12px; color: var(--red-l); text-align: center; margin-top: 6px; margin-bottom:8px; display: none; padding:8px; background:rgba(239,68,68,0.08); border-radius:6px; }
+  .link-row { text-align: center; font-size: 13px; color: var(--text3); margin-top: 12px; }
+  .link-row span { color: var(--amber); cursor: pointer; }
+
+  /* ══════════════════════════════════
+     MAIN APP LAYOUT
+  ══════════════════════════════════ */
+  #app-screen {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 0.5px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 12px;
+  }
+
+  .sidebar-logo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 8px 20px;
+    border-bottom: 0.5px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .sidebar-logo .slogo-icon {
+    width: 32px; height: 32px;
+    background: var(--amber);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .sidebar-logo .slogo-icon i { font-size: 17px; color: #1a0e00; }
+  .sidebar-logo span { font-size: 15px; font-weight: 700; color: #f1f5f9; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px; color: var(--text3);
+    transition: all 0.15s;
+    margin-bottom: 2px;
+  }
+
+  .nav-item i { font-size: 19px; }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text2); }
+  .nav-item.active { background: rgba(245,158,11,0.12); color: var(--amber); }
+
+  .nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text4); padding: 12px 12px 6px; }
+
+  .sidebar-bottom { margin-top: auto; }
+
+  .user-pill {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg3);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(245,158,11,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--amber);
+    flex-shrink: 0;
+  }
+
+  .user-info p { font-size: 13px; font-weight: 500; color: var(--text); }
+  .user-info span { font-size: 11px; color: var(--text3); font-family: 'Space Mono', monospace; }
+
+  /* Main area */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Top bar */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 10;
+    flex-shrink: 0;
+  }
+
+  .topbar-title { font-size: 16px; font-weight: 600; color: #f1f5f9; }
+  .topbar-sub { font-size: 12px; color: var(--text3); font-family: 'Space Mono', monospace; margin-top: 1px; }
+
+  .live-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(74,222,128,0.1);
+    border: 0.5px solid rgba(74,222,128,0.25);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 12px; color: var(--green-l);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-l); animation: blink 1.4s ease-in-out infinite; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .page-content { padding: 24px 28px; flex: 1; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card-title { font-size: 12px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+
+  /* ── METRIC GRID ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .metric-card {
+    background: var(--bg3);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    position: relative; overflow: hidden;
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .mc-voltage::before { background: var(--amber); }
+  .mc-current::before { background: var(--blue); }
+  .mc-power::before { background: var(--purple); }
+  .mc-irr::before { background: var(--orange); }
+  .mc-temp::before { background: var(--red); }
+
+  .mc-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .mc-label i { font-size: 14px; }
+  .mc-value { font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+  .mc-unit { font-size: 11px; color: var(--text4); }
+  .mc-trend { font-size: 11px; margin-top: 8px; }
+  .mc-trend.up { color: var(--green-l); }
+  .mc-trend.dn { color: var(--red-l); }
+  .mc-trend.neu { color: var(--text4); }
+
+  .mc-voltage .mc-value { color: var(--amber-l); }
+  .mc-current .mc-value { color: var(--blue-l); }
+  .mc-power   .mc-value { color: var(--purple-l); }
+  .mc-irr     .mc-value { color: var(--orange-l); }
+  .mc-temp    .mc-value { color: var(--red-l); }
+
+  /* ── GRID HELPERS ── */
+  .g2 { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+  .g3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+
+  /* ── STAT MINI ── */
+  .stat-mini { background: var(--bg); border-radius: 10px; padding: 12px 14px; }
+  .stat-mini-label { font-size: 11px; color: var(--text3); }
+  .stat-mini-val { font-size: 18px; font-weight: 700; font-family: 'Space Mono', monospace; margin-top: 4px; }
+
+  /* ── CHART CARD ── */
+  .chart-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .chart-name { font-size: 13px; font-weight: 500; color: var(--text2); }
+
+  /* ── FILTER ROW ── */
+  .filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .fbtn { padding: 5px 14px; border-radius: 20px; font-size: 12px; background: var(--bg3); border: 0.5px solid var(--border); color: var(--text3); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+  .fbtn.on { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.35); color: var(--amber); }
+
+  /* ── TABLE ── */
+  .tbl-wrap { overflow-x: auto; }
+  table.dtbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dtbl th { color: var(--text3); text-align: left; padding: 8px 12px; border-bottom: 0.5px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 400; white-space: nowrap; }
+  .dtbl td { color: var(--text2); padding: 9px 12px; border-bottom: 0.5px solid rgba(255,255,255,0.04); font-family: 'Space Mono', monospace; font-size: 12px; white-space: nowrap; }
+  .dtbl tr:last-child td { border-bottom: none; }
+  .dtbl tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ── BADGE ── */
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 8px; font-family: 'Space Mono', monospace; }
+
+  /* ── WIZARD ── */
+  .step-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 20px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.1); transition: all 0.3s; }
+  .dot.on { background: var(--amber); width: 20px; border-radius: 3px; }
+
+  .wizard-step { display: none; }
+  .wizard-step.active { display: block; }
+
+  .mode-option { border: 0.5px solid var(--border2); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.2s; }
+  .mode-option.selected { border: 1.5px solid var(--amber); }
+  .mode-option.selected-blue { border: 1.5px solid var(--blue-l); }
+  .mode-option-inner { display: flex; align-items: center; gap: 12px; }
+  .mode-option-inner i { font-size: 22px; }
+  .mode-title { font-size: 14px; font-weight: 600; color: #f1f5f9; }
+  .mode-desc { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .sensor-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid rgba(255,255,255,0.05); }
+  .sensor-row:last-child { border-bottom: none; }
+  .sensor-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+  .sensor-label i { font-size: 16px; }
+
+  .wiz-result { text-align: center; padding: 24px 16px; }
+  .wiz-icon { width: 56px; height: 56px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .wiz-icon i { font-size: 26px; }
+
+  /* ── TOGGLE ── */
+  .toggle { width: 42px; height: 24px; border-radius: 12px; background: #1e2a3a; border: 0.5px solid var(--border2); position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+  .toggle.on { background: var(--amber); }
+  .tthumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #64748b; transition: all 0.2s; }
+  .toggle.on .tthumb { left: 21px; background: #fff; }
+
+  /* ── Alert status bar ── */
+  .astatus {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 20px; font-size: 12px;
+    background: var(--bg2); border: 0.5px solid var(--border);
+    color: var(--text3); font-family: monospace;
+    transition: all 0.3s;
+  }
+  .astatus i { font-size: 14px; }
+  .astatus.ok   { background: rgba(22,163,74,0.1);  border-color: rgba(74,222,128,0.3);  color: #4ade80; }
+  .astatus.warn { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3);  color: #f59e0b; }
+  .astatus.err  { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3);   color: #f87171; }
+  .astatus.off  { background: var(--bg2);            border-color: var(--border);           color: var(--text4); }
+
+  /* ── Alert feed items ── */
+  .afeed-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; border-radius: 12px; margin-bottom: 8px;
+    border: 0.5px solid; animation: fadeInAlert 0.3s ease;
+  }
+  @keyframes fadeInAlert { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+  .afeed-item.ok   { background: rgba(22,163,74,0.06);  border-color: rgba(74,222,128,0.2); }
+  .afeed-item.warn { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.25); }
+  .afeed-item.err  { background: rgba(239,68,68,0.08);  border-color: rgba(239,68,68,0.25); }
+  .afeed-item.info { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.25); }
+  .afeed-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  .afeed-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .afeed-desc  { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .afeed-time  { font-size: 10px; color: var(--text4); font-family: monospace; margin-top: 4px; }
+  .afeed-badge { font-size: 10px; padding: 2px 7px; border-radius: 8px; font-family: monospace; font-weight: 600; }
+
+  /* ── Threshold reference ── */
+  .thr-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid rgba(255,255,255,0.05); }
+  .thr-row:last-child { border-bottom: none; }
+  .thr-label { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 6px; min-width: 100px; font-weight: 500; padding-top: 2px; }
+  .thr-label i { font-size: 14px; }
+  .thr-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .thr-chip { font-size: 11px; padding: 3px 9px; border-radius: 8px; font-family: monospace; }
+  .thr-chip.ok   { background: rgba(22,163,74,0.1);   color: #4ade80; border: 0.5px solid rgba(74,222,128,0.2); }
+  .thr-chip.warn { background: rgba(245,158,11,0.1);  color: #f59e0b; border: 0.5px solid rgba(245,158,11,0.2); }
+  .thr-chip.err  { background: rgba(239,68,68,0.1);   color: #f87171; border: 0.5px solid rgba(239,68,68,0.2); }
+
+  /* ── Panel count picker ── */
+  .pbtn {
+    width:40px;height:36px;border-radius:8px;font-size:14px;font-weight:600;
+    background:var(--bg);border:0.5px solid var(--border);color:var(--text3);
+    cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;
+  }
+  .pbtn.on { background:rgba(245,158,11,0.18);border-color:rgba(245,158,11,0.5);color:var(--amber); }
+
+  /* ── Site card ── */
+  .site-card-wrap { background:var(--bg2);border:0.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;transition:border-color 0.2s; }
+  .site-card-wrap.active-site { border-color:rgba(74,222,128,0.35); }
+  .site-card-wrap.offline-site { opacity:0.65; }
+  .site-header { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px; }
+  .site-name { font-size:15px;font-weight:600;color:#f1f5f9; }
+  .site-meta { font-size:11px;color:var(--text3);margin-top:3px;font-family:monospace; }
+  .site-stats4 { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px; }
+  .site-stat { background:var(--bg);border-radius:8px;padding:8px 10px; }
+  .site-stat-lbl { font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em; }
+  .site-stat-val { font-size:15px;font-weight:700;font-family:monospace;margin-top:3px; }
+  .site-actions { display:flex;gap:6px;margin-top:12px; }
+  .site-action-btn { flex:1;padding:6px 0;border-radius:8px;border:0.5px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:4px; }
+  .site-action-btn:hover { background:rgba(255,255,255,0.04);color:var(--text2); }
+  .site-action-btn.danger:hover { background:rgba(239,68,68,0.1);color:#f87171;border-color:rgba(239,68,68,0.25); }
+
+  /* ── Log interval buttons ── */
+  .ibtn {
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 11px;
+    background: var(--bg2);
+    border: 0.5px solid var(--border);
+    color: var(--text3);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .ibtn:hover { background: rgba(255,255,255,0.04); color: var(--text2); }
+  .ibtn.on {
+    background: rgba(245,158,11,0.15);
+    border-color: rgba(245,158,11,0.4);
+    color: var(--amber);
+    font-weight: 600;
+  }
+
+  /* ── SETTINGS ROW ── */
+  .set-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.05); }
+  .set-row:last-child { border-bottom: none; }
+  .set-left { display: flex; align-items: center; gap: 12px; }
+  .set-left i { font-size: 18px; color: var(--text3); }
+  .set-label { font-size: 14px; color: var(--text); }
+  .set-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+  .set-val { font-size: 13px; color: var(--text3); font-family: 'Space Mono', monospace; }
+
+  /* ── ALERT ITEM ── */
+  .alert-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: var(--bg3); border: 0.5px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; }
+  .alert-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .alert-body { flex: 1; }
+  .alert-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3px; }
+  .alert-title { font-size: 14px; font-weight: 500; color: var(--text); }
+  .alert-desc { font-size: 12px; color: var(--text3); }
+  .alert-time { font-size: 11px; color: var(--text4); font-family: 'Space Mono', monospace; margin-top: 5px; }
+
+  /* ── EXPORT ── */
+  .export-summary { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
+  .export-msg { font-size: 13px; text-align: center; padding: 10px; border-radius: 10px; display: none; font-family: 'Space Mono', monospace; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    #app-screen { flex-direction: column; }
+    .main { height: 100vh; }
+    .g2, .g3 { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .page-content { padding: 16px; }
+  }
+
+  /* ── MOBILE NAV ── */
+  .mobile-nav { display: none; background: var(--bg2); border-top: 0.5px solid var(--border); padding: 6px 0 10px; flex-shrink: 0; }
+  .mobile-nav-inner { display: flex; }
+  .mnav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; font-size: 10px; color: var(--text4); padding: 6px 0; font-family: 'DM Sans', sans-serif; transition: color 0.2s; }
+  .mnav-btn i { font-size: 21px; }
+  .mnav-btn.on { color: var(--amber); }
+
+  @media (max-width: 768px) {
+    .mobile-nav { display: block; }
+    .main { overflow-y: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+     LOGIN SCREEN
+════════════════════════════════════ -->
+<div id="login-screen" class="screen active" style="display:flex">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo-icon"><i class="ti ti-sun"></i></div>
+      <div class="logo-text">
+        <h1>SolarView</h1>
+        <p>ESP32 monitoring platform</p>
+      </div>
+    </div>
+
+    <div class="login-card">
+      <!-- Sign In -->
+      <div id="form-signin">
+        <div class="form-title">Sign in</div>
+        <div class="field">
+          <label>Username</label>
+          <input type="text" id="inp-email" placeholder="Jonah Joseph" autocomplete="username">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="inp-wrap">
+            <input type="password" id="inp-pass" class="inp-pr" placeholder="••••••••" autocomplete="current-password">
+            <i class="ti ti-eye" onclick="togglePass()" aria-label="Toggle password"></i>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:12px;color:var(--text3)">Username: <span style="color:var(--amber);font-family:monospace">Jonah Joseph</span></div>
+          <div class="forgot" onclick="showForm('reset')" style="margin-bottom:0">Forgot password?</div>
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()"><i class="ti ti-login"></i> Sign in</button>
+        <button class="btn btn-outline" onclick="showForm('register')">Create account</button>
+        <div class="err-msg" id="login-err">Invalid credentials. Please check your username and password.</div>
+      </div>
+
+      <!-- Register -->
+      <div id="form-register" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <i class="ti ti-arrow-left" style="font-size:20px;color:var(--text3);cursor:pointer" onclick="showForm('signin')"></i>
+          <div class="form-title" style="margin:0">Create account</div>
+        </div>
+        <div class="field"><label>Full name</label><input type="text" placeholder="Adesola Ibrahim"></div>
+        <div class="field"><label>Email</label><input type="email" placeholder="you@example.com"></div>
+        <div class="field"><label>Password</label><input type="password" placeholder="Min. 8 characters"></div>
+        <button class="btn btn-primary" onclick="doLogin()"><i class="ti ti-user-plus"></i> Register</button>
+        <button class="btn btn-outline" onclick="showForm('signin')">Back to sign in</button>
+      </div>
+
+      <!-- Reset -->
+      <div id="form-reset" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <i class="ti ti-arrow-left" style="font-size:20px;color:var(--text3);cursor:pointer" onclick="showForm('signin')"></i>
+          <div class="form-title" style="margin:0">Reset password</div>
+        </div>
+        <p style="font-size:13px;color:var(--text3);margin-bottom:14px">Enter your email and we'll send a reset link.</p>
+        <div class="field"><label>Email</label><input type="email" placeholder="you@example.com"></div>
+        <button class="btn btn-primary" onclick="showForm('signin')"><i class="ti ti-send"></i> Send reset link</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     MAIN APP SCREEN
+════════════════════════════════════ -->
+<div id="app-screen" class="screen" style="display:none">
+
+  <!-- Sidebar (desktop) -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="slogo-icon"><i class="ti ti-sun"></i></div>
+      <span>SolarView</span>
+    </div>
+
+    <div class="nav-section">Monitor</div>
+    <div class="nav-item active" id="nav-live" onclick="showPage('live')"><i class="ti ti-activity"></i> Live readings</div>
+    <div class="nav-item" id="nav-charts" onclick="showPage('charts')"><i class="ti ti-chart-line"></i> Charts</div>
+    <div class="nav-item" id="nav-alerts" onclick="showPage('alerts')"><i class="ti ti-bell"></i> Alerts <span style="margin-left:auto;background:rgba(239,68,68,0.15);color:#f87171;font-size:10px;padding:1px 6px;border-radius:6px;font-family:monospace">3</span></div>
+
+    <div class="nav-section" style="margin-top:8px">Manage</div>
+    <div class="nav-item" id="nav-sites" onclick="showPage('sites')"><i class="ti ti-map-pin"></i> My sites</div>
+    <div class="nav-item" id="nav-export" onclick="showPage('export')"><i class="ti ti-download"></i> Export</div>
+    <div class="nav-item" id="nav-wizard" onclick="showPage('wizard')"><i class="ti ti-plug-connected"></i> Connect ESP32</div>
+    <div class="nav-item" id="nav-settings" onclick="showPage('settings')"><i class="ti ti-settings"></i> Settings</div>
+
+    <div class="sidebar-bottom">
+      <div style="padding:8px 4px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3);font-family:monospace">
+          <i class="ti ti-wifi" style="font-size:15px;color:var(--green-l)"></i>
+          ESP32 · 192.168.1.45
+        </div>
+        <div style="font-size:11px;color:var(--text4);font-family:monospace;margin-top:2px;margin-left:23px">Signal: -62dBm · 12ms</div>
+      </div>
+      <div class="user-pill">
+        <div class="avatar">JJ</div>
+        <div class="user-info">
+          <p>Jonah Joseph</p>
+          <span>admin · SolarView</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="page-title">Live readings</div>
+        <div class="topbar-sub" id="page-sub">Site A — Panel 1 · ESP32-WROOM</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="live-pill" id="live-indicator"><div class="live-dot"></div>LIVE</div>
+        <button class="btn btn-outline btn-sm" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
+      </div>
+    </div>
+
+    <!-- Pages -->
+    <div class="page-content">
+
+      <!-- ── LIVE PAGE ── -->
+      <div id="page-live" class="page active" style="display:block">
+        <div class="metrics-grid">
+          <div class="metric-card mc-voltage">
+            <div class="mc-label"><i class="ti ti-bolt" style="color:var(--amber)"></i> Voltage</div>
+            <div class="mc-value" id="m-v">--</div>
+            <div class="mc-unit">Volts (V)</div>
+            <div class="mc-trend neu" id="t-v">—</div>
+          </div>
+          <div class="metric-card mc-current">
+            <div class="mc-label"><i class="ti ti-wave-sine" style="color:var(--blue-l)"></i> Current</div>
+            <div class="mc-value" id="m-a">--</div>
+            <div class="mc-unit">Amperes (A)</div>
+            <div class="mc-trend neu" id="t-a">—</div>
+          </div>
+          <div class="metric-card mc-power">
+            <div class="mc-label"><i class="ti ti-activity" style="color:var(--purple-l)"></i> Power</div>
+            <div class="mc-value" id="m-p">--</div>
+            <div class="mc-unit">Watts (W)</div>
+            <div class="mc-trend neu" id="t-p">—</div>
+          </div>
+          <div class="metric-card mc-irr">
+            <div class="mc-label"><i class="ti ti-sun" style="color:var(--orange-l)"></i> Irradiance</div>
+            <div class="mc-value" id="m-i">--</div>
+            <div class="mc-unit">W/m²</div>
+            <div class="mc-trend neu" id="t-i">—</div>
+          </div>
+          <div class="metric-card mc-temp">
+            <div class="mc-label"><i class="ti ti-thermometer" style="color:var(--red-l)"></i> Temperature</div>
+            <div class="mc-value" id="m-t">--</div>
+            <div class="mc-unit">°C</div>
+            <div class="mc-trend neu" id="t-t">—</div>
+          </div>
+          <div class="metric-card" style="border-color:rgba(168,85,247,0.2)">
+            <div class="mc-label"><i class="ti ti-percentage" style="color:var(--purple-l)"></i> Efficiency</div>
+            <div class="mc-value" id="m-eff" style="color:var(--purple-l)">--</div>
+            <div class="mc-unit">P / (Irr × 1.6 m²)</div>
+            <div class="mc-trend neu" style="margin-top:8px;font-size:11px;color:var(--text4)">Panel area: 1.6 m²</div>
+          </div>
+        </div>
+
+        <div class="g2">
+          <div class="chart-card" style="margin:0">
+            <div class="chart-head">
+              <span class="chart-name">Power output (W)</span>
+              <span class="badge" style="background:rgba(168,85,247,0.12);color:var(--purple-l)" id="live-avg">avg --W</span>
+            </div>
+            <div style="position:relative;height:160px">
+              <canvas id="liveChart" role="img" aria-label="Live power output over last 30 readings">Live power chart.</canvas>
+            </div>
+          </div>
+          <div class="chart-card" style="margin:0">
+            <div class="chart-head">
+              <span class="chart-name">Voltage & current</span>
+            </div>
+            <div style="position:relative;height:160px">
+              <canvas id="liveVC" role="img" aria-label="Live voltage and current">Live V and A chart.</canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span class="card-title" style="margin:0">System status</span>
+            <span style="font-size:12px;color:var(--text3);font-family:monospace" id="last-update-ts">—</span>
+          </div>
+          <div class="g3">
+            <div class="stat-mini"><div class="stat-mini-label">Device</div><div class="stat-mini-val" style="color:var(--blue-l);font-size:14px">ESP32-WROOM</div></div>
+            <div class="stat-mini"><div class="stat-mini-label">Protocol</div><div class="stat-mini-val" style="color:var(--text2);font-size:14px">HTTP POST</div></div>
+            <div class="stat-mini"><div class="stat-mini-label">Poll interval</div><div class="stat-mini-val" style="color:var(--amber);font-size:14px" data-live-interval="1">2s live · 2min log</div></div>
+            <div class="stat-mini"><div class="stat-mini-label">Readings today</div><div class="stat-mini-val" style="color:var(--green-l)" id="read-count">0</div></div>
+            <div class="stat-mini"><div class="stat-mini-label">Wi-Fi signal</div><div class="stat-mini-val" style="color:var(--green-l);font-size:14px">-62 dBm</div></div>
+            <div class="stat-mini"><div class="stat-mini-label">Uptime</div><div class="stat-mini-val" style="color:var(--text2);font-size:14px" id="uptime-val">0:00</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CHARTS PAGE ── -->
+      <div id="page-charts" class="page" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="filter-row">
+            <button class="fbtn on" onclick="setRange(this,'1h')">1H</button>
+            <button class="fbtn" onclick="setRange(this,'6h')">6H</button>
+            <button class="fbtn" onclick="setRange(this,'24h')">24H</button>
+            <button class="fbtn" onclick="setRange(this,'7d')">7D</button>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="buildHistData(activeRange)"><i class="ti ti-refresh"></i> Refresh</button>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-head">
+            <span class="chart-name">Power output (W)</span>
+            <span class="badge" style="background:rgba(168,85,247,0.12);color:var(--purple-l)" id="h-avg-p">avg --W</span>
+          </div>
+          <div style="position:relative;height:200px">
+            <canvas id="hPower" role="img" aria-label="Historical power output">Power.</canvas>
+          </div>
+        </div>
+
+        <div class="g2">
+          <div class="chart-card" style="margin:0">
+            <div class="chart-head"><span class="chart-name">Voltage (V)</span></div>
+            <div style="position:relative;height:120px"><canvas id="hVolt" role="img" aria-label="Historical voltage">Voltage.</canvas></div>
+          </div>
+          <div class="chart-card" style="margin:0">
+            <div class="chart-head"><span class="chart-name">Current (A)</span></div>
+            <div style="position:relative;height:120px"><canvas id="hCurr" role="img" aria-label="Historical current">Current.</canvas></div>
+          </div>
+        </div>
+
+        <div class="g2" style="margin-top:16px">
+          <div class="chart-card" style="margin:0">
+            <div class="chart-head"><span class="chart-name">Irradiance (W/m²)</span></div>
+            <div style="position:relative;height:120px"><canvas id="hIrr" role="img" aria-label="Historical irradiance">Irradiance.</canvas></div>
+          </div>
+          <div class="chart-card" style="margin:0">
+            <div class="chart-head"><span class="chart-name">Temperature (°C)</span></div>
+            <div style="position:relative;height:120px"><canvas id="hTemp" role="img" aria-label="Historical temperature">Temperature.</canvas></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span class="card-title" style="margin:0">Data table</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="downloadCSV()"><i class="ti ti-file-spreadsheet"></i> CSV</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.07em;">Log interval:</span>
+            <div id="interval-btns" style="display:flex;gap:5px;flex-wrap:wrap">
+              <button class="ibtn on" onclick="setLogInterval(this,2)">2 min</button>
+              <button class="ibtn" onclick="setLogInterval(this,5)">5 min</button>
+              <button class="ibtn" onclick="setLogInterval(this,10)">10 min</button>
+              <button class="ibtn" onclick="setLogInterval(this,15)">15 min</button>
+              <button class="ibtn" onclick="setLogInterval(this,20)">20 min</button>
+              <button class="ibtn" onclick="setLogInterval(this,25)">25 min</button>
+              <button class="ibtn" onclick="setLogInterval(this,30)">30 min</button>
+              <button class="ibtn" onclick="setLogInterval(this,60)">1 hr</button>
+            </div>
+            <span id="interval-status" style="font-size:11px;color:var(--text3);font-family:monospace">Logging every 2 min</span>
+          </div>
+          <div class="tbl-wrap">
+            <table class="dtbl">
+              <thead><tr><th>Time</th><th>Voltage (V)</th><th>Current (A)</th><th>Power (W)</th><th>Irr. (W/m²)</th><th>Temp (°C)</th><th>Efficiency</th></tr></thead>
+              <tbody id="hist-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ALERTS PAGE ── -->
+      <div id="page-alerts" class="page" style="display:none">
+        <!-- Header -->
+        <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <span id="alert-count-label" style="font-size:13px;color:var(--text3)">Monitoring active alerts...</span>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="clearAllAlerts()"><i class="ti ti-trash"></i> Clear all</button>
+        </div>
+
+        <!-- Status bar — all green when normal -->
+        <div id="alert-status-bar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <div class="astatus" id="ast-voltage"><i class="ti ti-bolt"></i> Voltage <span>--</span></div>
+          <div class="astatus" id="ast-current"><i class="ti ti-wave-sine"></i> Current <span>--</span></div>
+          <div class="astatus" id="ast-power"><i class="ti ti-activity"></i> Power <span>--</span></div>
+          <div class="astatus" id="ast-temp"><i class="ti ti-thermometer"></i> Temp <span>--</span></div>
+        </div>
+
+        <!-- Live alert feed -->
+        <div id="alert-feed">
+          <div style="text-align:center;padding:32px 0;color:var(--text3);font-size:13px">
+            <i class="ti ti-shield-check" style="font-size:32px;display:block;margin-bottom:8px;color:var(--text4)"></i>
+            Connect ESP32 to start real-time alert monitoring
+          </div>
+        </div>
+
+        <!-- Thresholds reference card -->
+        <div class="card" style="margin-top:8px">
+          <div class="card-title">Operational Thresholds</div>
+
+          <div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-family:monospace">
+            All thresholds based on your 20W solar panel specifications
+          </div>
+
+          <!-- Voltage -->
+          <div class="thr-row">
+            <div class="thr-label"><i class="ti ti-bolt" style="color:var(--amber)"></i> Voltage</div>
+            <div class="thr-chips">
+              <span class="thr-chip ok">✓ Normal: 17V – 22.5V</span>
+              <span class="thr-chip warn">⚠ Low: &lt;11V (daytime + high irradiance)</span>
+              <span class="thr-chip warn">⚠ High: &gt;23V (disconnected load)</span>
+            </div>
+          </div>
+
+          <!-- Current -->
+          <div class="thr-row">
+            <div class="thr-label"><i class="ti ti-wave-sine" style="color:var(--blue-l)"></i> Current</div>
+            <div class="thr-chips">
+              <span class="thr-chip ok">✓ Normal: 0.1A – 1.75A</span>
+              <span class="thr-chip warn">⚠ High: &gt;2.0A (overcurrent)</span>
+            </div>
+          </div>
+
+          <!-- Power -->
+          <div class="thr-row">
+            <div class="thr-label"><i class="ti ti-activity" style="color:var(--purple-l)"></i> Power</div>
+            <div class="thr-chips">
+              <span class="thr-chip ok">✓ Normal peak: 15W – 27W</span>
+              <span class="thr-chip warn">⚠ Low at noon: &lt;5W</span>
+              <span class="thr-chip err">✗ Sensor error: &gt;32W</span>
+            </div>
+          </div>
+
+          <!-- Temperature -->
+          <div class="thr-row">
+            <div class="thr-label"><i class="ti ti-thermometer" style="color:var(--red-l)"></i> Temperature</div>
+            <div class="thr-chips">
+              <span class="thr-chip ok">✓ Normal: 35°C – 55°C</span>
+              <span class="thr-chip err">✗ Overheat: &gt;70°C</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SITES PAGE ── -->
+      <div id="page-sites" class="page" style="display:none">
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <div style="font-size:13px;color:var(--text3)" id="sites-count-label">1 site · 1 panel</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddSiteModal()"><i class="ti ti-plus"></i> Add site</button>
+        </div>
+
+        <!-- Sites list — rendered by JS -->
+        <div id="sites-list"></div>
+
+        <!-- ADD SITE MODAL -->
+        <div id="add-site-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center">
+          <div style="background:#111827;border:0.5px solid rgba(255,255,255,0.1);border-radius:18px;padding:24px;width:340px;max-width:94vw">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+              <div style="font-size:16px;font-weight:600;color:#f1f5f9" id="modal-title">Add new site</div>
+              <i class="ti ti-x" style="font-size:20px;color:var(--text3);cursor:pointer" onclick="closeAddSiteModal()"></i>
+            </div>
+
+            <div class="lbl">Site name</div>
+            <input class="inp" type="text" id="ms-name" placeholder="e.g. Main roof, Carport, School">
+
+            <div class="lbl">Location / description</div>
+            <input class="inp" type="text" id="ms-loc" placeholder="e.g. South-facing rooftop">
+
+            <div class="lbl">Number of panels</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap" id="panel-count-btns">
+              <button class="pbtn on" onclick="selectPanels(this,1)">1</button>
+              <button class="pbtn" onclick="selectPanels(this,2)">2</button>
+              <button class="pbtn" onclick="selectPanels(this,3)">3</button>
+              <button class="pbtn" onclick="selectPanels(this,4)">4</button>
+              <button class="pbtn" onclick="selectPanels(this,5)">5</button>
+              <button class="pbtn" onclick="selectPanels(this,6)">6</button>
+              <button class="pbtn" onclick="selectPanels(this,8)">8</button>
+              <button class="pbtn" onclick="selectPanels(this,10)">10</button>
+            </div>
+
+            <div class="lbl">ESP32 IP address</div>
+            <input class="inp" type="text" id="ms-ip" placeholder="e.g. 192.168.137.1">
+
+            <div class="lbl">Panel area (m² per panel)</div>
+            <input class="inp" type="number" id="ms-area" placeholder="1.6" value="1.6" min="0.1" step="0.1">
+
+            <div id="modal-err" style="font-size:12px;color:#f87171;margin-bottom:10px;display:none"></div>
+
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn btn-outline" style="flex:1" onclick="closeAddSiteModal()">Cancel</button>
+              <button class="btn btn-primary" style="flex:2" onclick="saveSite()" id="modal-save-btn"><i class="ti ti-check"></i> Save site</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── EXPORT PAGE ── -->
+      <div id="page-export" class="page" style="display:none">
+        <div class="g2" style="margin-bottom:0">
+          <div>
+            <div class="card">
+              <div class="card-title">Date range</div>
+              <div class="filter-row" style="margin-bottom:10px">
+                <button class="fbtn on" onclick="selExRange(this)">Today</button>
+                <button class="fbtn" onclick="selExRange(this)">Week</button>
+                <button class="fbtn" onclick="selExRange(this)">Month</button>
+                <button class="fbtn" onclick="selExRange(this)">Custom</button>
+              </div>
+              <div id="custom-date-wrap" style="display:none">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                  <div><div style="font-size:11px;color:var(--text3);margin-bottom:5px">From</div><input type="date"></div>
+                  <div><div style="font-size:11px;color:var(--text3);margin-bottom:5px">To</div><input type="date"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Parameters</div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-bolt" style="color:var(--amber)"></i><div class="set-label">Voltage</div></div><div class="toggle on" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-wave-sine" style="color:var(--blue-l)"></i><div class="set-label">Current</div></div><div class="toggle on" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-activity" style="color:var(--purple-l)"></i><div class="set-label">Power</div></div><div class="toggle on" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-sun" style="color:var(--orange-l)"></i><div class="set-label">Irradiance</div></div><div class="toggle on" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+              <div class="set-row" style="border:none"><div class="set-left"><i class="ti ti-thermometer" style="color:var(--red-l)"></i><div class="set-label">Temperature</div></div><div class="toggle on" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <div class="card-title">Summary statistics</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div class="stat-mini"><div class="stat-mini-label">Avg power</div><div class="stat-mini-val" style="color:var(--purple-l)" id="ex-avgp">--W</div></div>
+                <div class="stat-mini"><div class="stat-mini-label">Peak power</div><div class="stat-mini-val" style="color:var(--green-l)" id="ex-pkp">--W</div></div>
+                <div class="stat-mini"><div class="stat-mini-label">Total energy</div><div class="stat-mini-val" style="color:var(--amber)" id="ex-kwh">--kWh</div></div>
+                <div class="stat-mini"><div class="stat-mini-label">Avg temp</div><div class="stat-mini-val" style="color:var(--red-l)" id="ex-avgt">--°C</div></div>
+                <div class="stat-mini"><div class="stat-mini-label">Avg irradiance</div><div class="stat-mini-val" style="color:var(--orange-l)" id="ex-avgi">--W/m²</div></div>
+                <div class="stat-mini"><div class="stat-mini-label">Avg efficiency</div><div class="stat-mini-val" style="color:var(--blue-l)" id="ex-avge">--%</div></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Export format</div>
+              <button class="btn btn-primary" onclick="doExport('csv')"><i class="ti ti-file-spreadsheet"></i> Download CSV</button>
+              <button class="btn btn-outline" onclick="doExport('json')"><i class="ti ti-braces"></i> Download JSON</button>
+              <button class="btn btn-outline" onclick="doExport('share')"><i class="ti ti-share"></i> Copy share link</button>
+              <div class="export-msg" id="export-msg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── WIZARD PAGE ── -->
+      <div id="page-wizard" class="page" style="display:none">
+        <div class="card" style="max-width:560px;margin:0 auto">
+          <div class="step-dots">
+            <div class="dot on" id="wd0"></div>
+            <div class="dot" id="wd1"></div>
+            <div class="dot" id="wd2"></div>
+            <div class="dot" id="wd3"></div>
+          </div>
+
+          <div class="wizard-step active" id="ws0">
+            <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px">Step 1 — Connection mode</div>
+            <div style="font-size:13px;color:var(--text3);margin-bottom:18px">How will your ESP32 send data to this dashboard?</div>
+            <div class="mode-option selected" id="mo-http" onclick="pickMode('http')">
+              <div class="mode-option-inner"><i class="ti ti-server" style="color:var(--amber)"></i><div><div class="mode-title">HTTP POST</div><div class="mode-desc">ESP32 pushes JSON payload every N seconds via a simple POST request</div></div></div>
+            </div>
+            <div class="mode-option" id="mo-ws" onclick="pickMode('ws')">
+              <div class="mode-option-inner"><i class="ti ti-plug-connected" style="color:var(--blue-l)"></i><div><div class="mode-title">WebSocket</div><div class="mode-desc">Real-time bidirectional stream — lowest latency, best for fast polling</div></div></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px">
+              <button class="btn btn-primary btn-sm" onclick="wizNext()">Next <i class="ti ti-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <div class="wizard-step" id="ws1">
+            <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px">Step 2 — Endpoint config</div>
+            <div style="font-size:13px;color:var(--text3);margin-bottom:18px">Enter your laptop's local IP address and the port your server listens on.</div>
+            <div class="field-row">
+              <div class="field"><label>Server IP address</label><input type="text" placeholder="192.168.1.100" value="192.168.1.100"></div>
+              <div class="field"><label>Port</label><input type="text" placeholder="3000" value="3000"></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>Endpoint path</label><input type="text" placeholder="/data" value="/data"></div>
+              <div class="field"><label>Poll interval (s)</label><input type="number" placeholder="2" value="2" min="1" max="60"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:16px">
+              <button class="btn btn-outline btn-sm" onclick="wizBack()"><i class="ti ti-arrow-left"></i> Back</button>
+              <button class="btn btn-primary btn-sm" onclick="wizNext()">Next <i class="ti ti-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <div class="wizard-step" id="ws2">
+            <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:6px">Step 3 — Sensor key mapping</div>
+            <div style="font-size:13px;color:var(--text3);margin-bottom:18px">Map the JSON keys your ESP32 sends to each parameter.</div>
+            <div class="sensor-row"><div class="sensor-label"><i class="ti ti-bolt" style="color:var(--amber)"></i> Voltage</div><input type="text" value="voltage" style="width:130px"></div>
+            <div class="sensor-row"><div class="sensor-label"><i class="ti ti-wave-sine" style="color:var(--blue-l)"></i> Current</div><input type="text" value="current" style="width:130px"></div>
+            <div class="sensor-row"><div class="sensor-label"><i class="ti ti-activity" style="color:var(--purple-l)"></i> Power</div><input type="text" value="power" style="width:130px"></div>
+            <div class="sensor-row"><div class="sensor-label"><i class="ti ti-sun" style="color:var(--orange-l)"></i> Irradiance</div><input type="text" value="irradiance" style="width:130px"></div>
+            <div class="sensor-row" style="border:none"><div class="sensor-label"><i class="ti ti-thermometer" style="color:var(--red-l)"></i> Temperature</div><input type="text" value="temperature" style="width:130px"></div>
+            <div style="margin-top:14px;padding:12px;background:var(--bg);border-radius:10px;font-family:monospace;font-size:12px;color:var(--text3)">
+              Expected payload:<br>
+              <span style="color:var(--green-l)">{"voltage":36.4,"current":4.8,"power":174.7,"irradiance":850,"temperature":43.2}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:16px">
+              <button class="btn btn-outline btn-sm" onclick="wizBack()"><i class="ti ti-arrow-left"></i> Back</button>
+              <button class="btn btn-primary btn-sm" onclick="wizNext()">Test connection <i class="ti ti-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <div class="wizard-step" id="ws3">
+            <div id="wiz-testing" class="wiz-result">
+              <div class="wiz-icon" style="background:rgba(245,158,11,0.12)"><i class="ti ti-refresh" style="color:var(--amber);animation:spin 1.2s linear infinite"></i></div>
+              <div style="font-size:16px;font-weight:600;color:#f1f5f9;margin-bottom:4px">Testing connection…</div>
+              <div style="font-size:13px;color:var(--text3)">Pinging 192.168.1.100:3000/data</div>
+            </div>
+            <div id="wiz-ok" class="wiz-result" style="display:none">
+              <div class="wiz-icon" style="background:rgba(74,222,128,0.12)"><i class="ti ti-check" style="color:var(--green-l)"></i></div>
+              <div style="font-size:16px;font-weight:600;color:var(--green-l);margin-bottom:4px">Connected!</div>
+              <div style="font-size:13px;color:var(--text3);margin-bottom:14px">ESP32 is online and streaming data.</div>
+              <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap">
+                <span class="badge" style="background:rgba(74,222,128,0.12);color:var(--green-l)">Latency: 12ms</span>
+                <span class="badge" style="background:rgba(59,130,246,0.12);color:var(--blue-l)">Signal: -62dBm</span>
+                <span class="badge" style="background:rgba(168,85,247,0.12);color:var(--purple-l)">Mode: HTTP</span>
+              </div>
+              <button class="btn btn-success" style="margin-top:20px;max-width:240px" onclick="showPage('live')"><i class="ti ti-check"></i> Go to dashboard</button>
+            </div>
+            <div style="display:flex;justify-content:flex-start;margin-top:4px">
+              <button class="btn btn-outline btn-sm" onclick="wizBack()"><i class="ti ti-arrow-left"></i> Back</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SETTINGS PAGE ── -->
+      <div id="page-settings" class="page" style="display:none">
+        <div class="g2">
+          <div>
+            <div class="card">
+              <div class="card-title">Alerts</div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-thermometer"></i><div><div class="set-label">Overheat threshold</div><div class="set-sub">Critical above 70°C</div></div></div><span class="set-val">&gt;70 °C</span></div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-bolt"></i><div><div class="set-label">Voltage range</div><div class="set-sub">Normal: 17V–22.5V</div></div></div><span class="set-val">11–23 V</span></div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-activity"></i><div><div class="set-label">Min power</div><div class="set-sub">Alert below this</div></div></div><span class="set-val">10 W</span></div>
+              <div class="set-row" style="border:none"><div class="set-left"><i class="ti ti-bell"></i><div><div class="set-label">Push notifications</div></div></div><div class="toggle on" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Display</div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-clock"></i><div><div class="set-label">Time format</div></div></div><span class="set-val">24h</span></div>
+              <div class="set-row" style="border:none"><div class="set-left"><i class="ti ti-temperature"></i><div><div class="set-label">Temp unit</div></div></div><span class="set-val">°C</span></div>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="card-title">Connection</div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-wifi"></i><div><div class="set-label">ESP32 endpoint</div></div></div><span class="set-val">192.168.1.45</span></div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-clock"></i><div><div class="set-label">Poll interval</div></div></div><span class="set-val" data-interval="1">2s live · 2min log</span></div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-database"></i><div><div class="set-label">Store history</div></div></div><div class="toggle on" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+              <div class="set-row" style="border:none"><div class="set-left"><i class="ti ti-cloud-upload"></i><div><div class="set-label">Cloud sync</div></div></div><div class="toggle" onclick="this.classList.toggle('on')"><div class="tthumb"></div></div></div>
+            </div>
+            <div class="card">
+              <div class="card-title">About</div>
+              <div class="set-row"><div class="set-left"><i class="ti ti-info-circle"></i><div class="set-label">App version</div></div><span class="set-val">v1.0.0</span></div>
+              <div class="set-row" style="border:none"><div class="set-left"><i class="ti ti-cpu"></i><div class="set-label">Firmware</div></div><span class="set-val">ESP32 v2.3.1</span></div>
+            </div>
+            <button class="btn btn-danger" onclick="doLogout()"><i class="ti ti-logout"></i> Sign out</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+
+    <!-- Mobile nav -->
+    <div class="mobile-nav">
+      <div class="mobile-nav-inner">
+        <button class="mnav-btn on" id="mn-live" onclick="showPage('live')"><i class="ti ti-activity"></i>Live</button>
+        <button class="mnav-btn" id="mn-charts" onclick="showPage('charts')"><i class="ti ti-chart-line"></i>Charts</button>
+        <button class="mnav-btn" id="mn-alerts" onclick="showPage('alerts')"><i class="ti ti-bell"></i>Alerts</button>
+        <button class="mnav-btn" id="mn-export" onclick="showPage('export')"><i class="ti ti-download"></i>Export</button>
+        <button class="mnav-btn" id="mn-settings" onclick="showPage('settings')"><i class="ti ti-settings"></i>More</button>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app-screen -->
+
+<script>
+// ══════════════════════════════════════════════════
+//  SolarView  -  Main Application Script
+//  Jonah Joseph · Landmark University
+// ══════════════════════════════════════════════════
+
+// ── CONFIGURATION ────────────────────────────────
+var SERVER_IP   = 'solarview-server1-production.up.railway.app';
+var SERVER_PORT = 3000;
+var SERVER_URL  = 'https://' + SERVER_IP + '/data';
+var useRealData = false;
+var prevVals    = {};
+var readCount   = 0;
+var startTime   = Date.now();
+var liveD=[], liveL=[], liveVD=[], liveAD=[];
+var chartsInited = false;
+var activeRange  = '1h';
+var liveChart, liveVC, hPower, hVolt, hCurr, hIrr, hTemp;
+
+// ── HISTORY ──────────────────────────────────────
+var recordedHistory  = [];
+var lastRecordTime   = 0;
+var RECORD_INTERVAL  = 2 * 60 * 1000;  // default 2 minutes
+
+// ── ALERTS ───────────────────────────────────────
+var alertHistory = [];
+var alertCooldown = {};
+var COOLDOWN_MS   = 60000;
+
+// ── SITES ────────────────────────────────────────
+var sites = [{
+  id:'site-a', name:'Site A', location:'Main solar panel',
+  panels:1, panelArea:1.6, ip:SERVER_IP, isActive:true,
+  energyToday:0, lastV:0, lastA:0, lastP:0, lastIrr:0, lastTemp:0, lastEff:0,
+  connected:false
+}];
+var editingSiteId  = null;
+var selectedPanels = 1;
+var energyAccumulator = 0;
+var lastEnergyTime    = 0;
+
+// ══════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════
+function togglePass() {
+  var inp = document.getElementById('inp-pass');
+  if (!inp) return;
+  var eye = document.querySelector('.ti-eye, .ti-eye-off');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    if (eye) { eye.classList.remove('ti-eye'); eye.classList.add('ti-eye-off'); }
+  } else {
+    inp.type = 'password';
+    if (eye) { eye.classList.remove('ti-eye-off'); eye.classList.add('ti-eye'); }
+  }
+}
+
+function doLogin() {
+  var nameEl = document.getElementById('inp-email');
+  var passEl = document.getElementById('inp-pass');
+  var errEl  = document.getElementById('login-err');
+
+  if (!nameEl || !passEl) { alert('Login form not found'); return; }
+
+  var nameVal = nameEl.value.trim().toLowerCase();
+  var passVal = passEl.value;
+
+  // Accept: "jonah joseph", "jonah", "jj", or anything containing "jonah"
+  var nameOK = nameVal === 'jonah joseph'
+            || nameVal === 'jonah'
+            || nameVal === 'jj'
+            || nameVal.indexOf('jonah') !== -1;
+
+  // Password must match exactly (do NOT trim  -  spaces are intentional)
+  var passOK = (passVal === '12345678');
+
+  if (!nameOK || !passOK) {
+    var msg = !nameOK
+      ? 'Username not found. Enter: Jonah Joseph'
+      : 'Incorrect password. Enter: 12345678';
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    // Shake effect
+    var card = document.querySelector('.login-card');
+    if (card) {
+      card.style.transition = 'transform 0.1s';
+      card.style.transform = 'translateX(8px)';
+      setTimeout(function(){ card.style.transform = 'translateX(-8px)'; }, 100);
+      setTimeout(function(){ card.style.transform = 'translateX(0)'; }, 200);
+    }
+    return;
+  }
+
+  // SUCCESS  -  hide login, show app
+  if (errEl) errEl.style.display = 'none';
+
+  var ls = document.getElementById('login-screen');
+  var as = document.getElementById('app-screen');
+
+  if (ls) { ls.style.display = 'none'; ls.classList.remove('active'); }
+  if (as) { as.style.display = 'flex'; as.classList.add('active'); }
+
+  // Init app after DOM settles
+  setTimeout(function() {
+    try { showPage('live'); }       catch(e) { console.warn(e); }
+    try { initCharts(); }           catch(e) { console.warn(e); }
+    try { buildHistData('1h'); }    catch(e) { console.warn(e); }
+    try { calcExportStats([],[],[]); } catch(e) {}
+    try { initSites(); }            catch(e) { console.warn(e); }
+    try { renderAlertFeed(); }      catch(e) {}
+    try { updateAlertNavBadge(); }  catch(e) {}
+    try { tickLive(); }             catch(e) { console.warn(e); }
+  }, 150);
+}
+
+function doLogout() {
+  // Stop live polling
+  useRealData = false;
+
+  var ls = document.getElementById('login-screen');
+  var as = document.getElementById('app-screen');
+  if (as) { as.style.display = 'none'; as.classList.remove('active'); }
+  if (ls) { ls.style.display = 'flex'; ls.classList.add('active'); }
+
+  // Clear fields
+  var em = document.getElementById('inp-email');
+  var pw = document.getElementById('inp-pass');
+  if (em) em.value = '';
+  if (pw) { pw.value = ''; pw.type = 'password'; }
+
+  // Clear error
+  var err = document.getElementById('login-err');
+  if (err) err.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════
+var pages = ['live','charts','alerts','sites','export','wizard','settings'];
+var pageTitles = {
+  live:'Live readings', charts:'Charts & history', alerts:'Alerts',
+  sites:'My sites', export:'Export data', wizard:'Connect ESP32', settings:'Settings'
+};
+var pageSubs = {
+  live:'Site A - Panel 1 - ESP32', charts:'Historical data',
+  alerts:'Real-time alert monitoring', sites:'Solar sites',
+  export:'Download & share', wizard:'Setup wizard', settings:'Configuration'
+};
+
+function showPage(name) {
+  pages.forEach(function(p) {
+    var pg = document.getElementById('page-' + p);
+    if (pg) pg.style.display = 'none';
+    var nv = document.getElementById('nav-' + p);
+    if (nv) nv.classList.remove('active');
+    var mn = document.getElementById('mn-' + p);
+    if (mn) mn.classList.remove('on');
+  });
+  var target = document.getElementById('page-' + name);
+  if (target) target.style.display = 'block';
+  var nav = document.getElementById('nav-' + name);
+  if (nav) nav.classList.add('active');
+  var mn = document.getElementById('mn-' + name);
+  if (mn) mn.classList.add('on');
+  var pt = document.getElementById('page-title');
+  if (pt) pt.textContent = pageTitles[name] || name;
+  var ps = document.getElementById('page-sub');
+  if (ps) ps.textContent = pageSubs[name] || '';
+  var li = document.getElementById('live-indicator');
+  if (li) li.style.display = name === 'live' ? 'flex' : 'none';
+}
+
+// ══════════════════════════════════════════════════
+//  ESP32 WIZARD
+// ══════════════════════════════════════════════════
+var wizStep = 0;
+function setWizDots(s) {
+  for (var i=0; i<4; i++) {
+    var d = document.getElementById('wd'+i);
+    if (d) { d.classList.remove('on'); d.style.width='6px'; }
+  }
+  var ad = document.getElementById('wd'+s);
+  if (ad) { ad.classList.add('on'); ad.style.width='20px'; }
+}
+function wizNext() {
+  if (wizStep < 3) {
+    var cur = document.getElementById('ws'+wizStep);
+    if (cur) cur.classList.remove('active');
+    wizStep++;
+    var nxt = document.getElementById('ws'+wizStep);
+    if (nxt) nxt.classList.add('active');
+    setWizDots(wizStep);
+    if (wizStep === 3) {
+      setTimeout(function() {
+        var t = document.getElementById('wiz-testing');
+        var o = document.getElementById('wiz-ok');
+        if (t) t.style.display = 'none';
+        if (o) o.style.display = 'block';
+      }, 2200);
+    }
+  }
+}
+function wizBack() {
+  if (wizStep > 0) {
+    var cur = document.getElementById('ws'+wizStep);
+    if (cur) cur.classList.remove('active');
+    wizStep--;
+    var prv = document.getElementById('ws'+wizStep);
+    if (prv) prv.classList.add('active');
+    setWizDots(wizStep);
+    if (wizStep < 3) {
+      var t = document.getElementById('wiz-testing');
+      var o = document.getElementById('wiz-ok');
+      if (t) t.style.display = 'block';
+      if (o) o.style.display = 'none';
+    }
+  }
+}
+function pickMode(m) {
+  var h = document.getElementById('mo-http');
+  var w = document.getElementById('mo-ws');
+  if (h) h.className = 'mode-option' + (m==='http' ? ' selected' : '');
+  if (w) w.className = 'mode-option' + (m==='ws'   ? ' selected-blue' : '');
+}
+
+// ══════════════════════════════════════════════════
+//  CHARTS
+// ══════════════════════════════════════════════════
+function mkLine(id, color, unit, showX) {
+  var el = document.getElementById(id);
+  if (!el) return null;
+  return new Chart(el, {
+    type:'line',
+    data:{ labels:[], datasets:[{ data:[], borderColor:color, backgroundColor:color+'18',
+      borderWidth:1.5, pointRadius:0, fill:true, tension:0.4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ display:showX, ticks:{ color:'#334155', font:{ size:10 }, maxTicksLimit:6, autoSkip:true } },
+        y:{ display:true, grid:{ color:'rgba(255,255,255,0.04)' },
+            ticks:{ color:'#475569', font:{ size:10 }, maxTicksLimit:4,
+              callback:function(v){ return v.toFixed(0)+unit; } } }
+      }
+    }
+  });
+}
+
+function initCharts() {
+  if (chartsInited) return;
+  liveChart = mkLine('liveChart','#a855f7','W',false);
+  liveVC    = new Chart(document.getElementById('liveVC'), {
+    type:'line',
+    data:{ labels:[], datasets:[
+      { data:[], borderColor:'#f59e0b', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, fill:false, tension:0.4 },
+      { data:[], borderColor:'#3b82f6', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, fill:false, borderDash:[4,3], tension:0.4 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, animation:{ duration:300 },
+      plugins:{ legend:{ display:false } },
+      scales:{ x:{ display:false }, y:{ display:true, grid:{ color:'rgba(255,255,255,0.04)' },
+        ticks:{ color:'#475569', font:{ size:10 }, maxTicksLimit:3 } } }
+    }
+  });
+  hPower = mkLine('hPower','#a855f7','W',true);
+  hVolt  = mkLine('hVolt', '#f59e0b','V',false);
+  hCurr  = mkLine('hCurr', '#3b82f6','A',false);
+  hIrr   = mkLine('hIrr',  '#f97316','',false);
+  hTemp  = mkLine('hTemp', '#ef4444','\u00b0',false);
+  chartsInited = true;
+}
+
+function buildHistData(range) {
+  activeRange = range;
+  if (!chartsInited) return;
+
+  [hPower,hVolt,hCurr,hIrr,hTemp].forEach(function(c) {
+    if (!c) return;
+    c.data.labels = []; c.data.datasets[0].data = []; c.update('none');
+  });
+  var avgEl = document.getElementById('h-avg-p');
+  if (avgEl) avgEl.textContent = 'avg --W';
+
+  if (!useRealData || recordedHistory.length === 0) {
+    updateHistoryTable(); calcExportStats([],[],[]); return;
+  }
+
+  var now = new Date();
+  var rangeMs = { '1h':3600000, '6h':21600000, '24h':86400000, '7d':604800000 };
+  var cutoff  = new Date(now - (rangeMs[range] || rangeMs['1h']));
+  var filtered = recordedHistory.filter(function(r) {
+    return new Date(r.time.replace(' ','T')) >= cutoff;
+  });
+
+  if (!filtered.length) { updateHistoryTable(); calcExportStats([],[],[]); return; }
+
+  var lb=[], pw=[], vt=[], am=[], ir=[], tp=[];
+  filtered.forEach(function(r) {
+    var d = new Date(r.time.replace(' ','T'));
+    lb.push(d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'));
+    pw.push(+r.power); vt.push(+r.voltage); am.push(+r.current);
+    ir.push(+r.irradiance); tp.push(+r.temperature);
+  });
+
+  [[hPower,pw],[hVolt,vt],[hCurr,am],[hIrr,ir],[hTemp,tp]].forEach(function(pair) {
+    if (!pair[0]) return;
+    pair[0].data.labels = lb; pair[0].data.datasets[0].data = pair[1]; pair[0].update('none');
+  });
+
+  var avg = function(a) { return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : 0; };
+  if (avgEl) avgEl.textContent = 'avg ' + avg(pw).toFixed(0) + 'W';
+  updateHistoryTable();
+  calcExportStats(pw, tp, ir);
+}
+
+function setRange(el, range) {
+  document.querySelectorAll('#page-charts .fbtn').forEach(function(b){ b.classList.remove('on'); });
+  el.classList.add('on');
+  buildHistData(range);
+}
+
+// ══════════════════════════════════════════════════
+//  DATA TABLE
+// ══════════════════════════════════════════════════
+function updateHistoryTable() {
+  var tbody = document.getElementById('hist-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (recordedHistory.length === 0) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="7" style="text-align:center;color:#475569;padding:16px;font-size:12px">' +
+      (useRealData
+        ? 'First log entry will appear at the next interval...'
+        : 'Connect ESP32 to start logging real readings') + '</td>';
+    tbody.appendChild(tr); return;
+  }
+
+  recordedHistory.slice(-20).reverse().forEach(function(r) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="color:#94a3b8;font-size:11px">' + r.time + '</td>' +
+      '<td style="color:#fbbf24">' + (+r.voltage).toFixed(2) + '</td>' +
+      '<td style="color:#60a5fa">' + (+r.current).toFixed(2) + '</td>' +
+      '<td style="color:#c084fc">' + (+r.power).toFixed(1) + '</td>' +
+      '<td style="color:#fb923c">' + (+r.irradiance).toFixed(0) + '</td>' +
+      '<td style="color:#f87171">' + (+r.temperature).toFixed(1) + '</td>' +
+      '<td style="color:#94a3b8">' + r.efficiency + '%</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════════
+function selExRange(el) {
+  document.querySelectorAll('#page-export .fbtn').forEach(function(b){ b.classList.remove('on'); });
+  el.classList.add('on');
+  var cdw = document.getElementById('custom-date-wrap');
+  if (cdw) cdw.style.display = el.textContent === 'Custom' ? 'block' : 'none';
+}
+
+function calcExportStats(pw, tp, ir) {
+  pw = pw||[]; tp = tp||[]; ir = ir||[];
+  var avg = function(a) { return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : 0; };
+  if (!pw.length || !useRealData) {
+    ['ex-avgp','ex-pkp','ex-kwh','ex-avgt','ex-avgi','ex-avge'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.textContent = '--';
+    }); return;
+  }
+  var avgP=avg(pw), avgT=avg(tp), avgI=avg(ir);
+  var set = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+  set('ex-avgp', avgP.toFixed(0)+'W');
+  set('ex-pkp',  Math.max.apply(null,pw).toFixed(0)+'W');
+  set('ex-kwh',  (avgP*24/1000).toFixed(2)+'kWh');
+  set('ex-avgt', avgT.toFixed(1)+'C');
+  set('ex-avgi', avgI.toFixed(0)+' W/m2');
+  set('ex-avge', avgI>0 ? Math.min(100,(avgP/(avgI*1.6))*100).toFixed(1)+'%' : '--');
+}
+
+function doExport(fmt) {
+  var msg = document.getElementById('export-msg');
+  if (!recordedHistory.length || !useRealData) {
+    if (msg) { msg.style.background='rgba(239,68,68,0.1)'; msg.style.color='#f87171';
+      msg.textContent='No real data recorded yet. Connect ESP32 first.';
+      msg.style.display='block'; setTimeout(function(){ msg.style.display='none'; },4000); }
+    return;
+  }
+  var d = new Date().toISOString().slice(0,10);
+  if (fmt === 'csv') {
+    var csv = 'Time,Voltage (V),Current (A),Power (W),Irradiance (W/m2),Temperature (C),Efficiency (%)\n';
+    recordedHistory.forEach(function(r) {
+      csv += r.time+','+r.voltage+','+r.current+','+r.power+','+r.irradiance+','+r.temperature+','+r.efficiency+'\n';
+    });
+    var blob = new Blob([csv],{type:'text/csv'});
+    var a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='solar_data_'+d+'.csv'; a.click();
+    if (msg) { msg.style.background='rgba(74,222,128,0.1)'; msg.style.color='#4ade80';
+      msg.textContent='solar_data_'+d+'.csv downloaded'; msg.style.display='block';
+      setTimeout(function(){ msg.style.display='none'; },3000); }
+  } else if (fmt === 'json') {
+    var data = { exported:new Date().toISOString(), site:'Site A', readings:recordedHistory };
+    var blob2 = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    var a2 = document.createElement('a'); a2.href=URL.createObjectURL(blob2);
+    a2.download='solar_data_'+d+'.json'; a2.click();
+    if (msg) { msg.style.background='rgba(59,130,246,0.1)'; msg.style.color='#60a5fa';
+      msg.textContent='solar_data_'+d+'.json downloaded'; msg.style.display='block';
+      setTimeout(function(){ msg.style.display='none'; },3000); }
+  } else {
+    try { navigator.clipboard.writeText(window.location.href); } catch(e) {}
+    if (msg) { msg.style.background='rgba(168,85,247,0.1)'; msg.style.color='#c084fc';
+      msg.textContent='Link copied to clipboard!'; msg.style.display='block';
+      setTimeout(function(){ msg.style.display='none'; },3000); }
+  }
+}
+
+function downloadCSV() { doExport('csv'); }
+
+// ══════════════════════════════════════════════════
+//  LOG INTERVAL SELECTOR
+// ══════════════════════════════════════════════════
+function setLogInterval(btn, minutes) {
+  document.querySelectorAll('.ibtn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  RECORD_INTERVAL = minutes * 60 * 1000;
+  lastRecordTime  = 0;
+  var status = document.getElementById('interval-status');
+  if (status) status.textContent = 'Logging every ' + (minutes < 60 ? minutes + ' min' : '1 hr');
+}
+
+// ══════════════════════════════════════════════════
+//  HISTORY RECORDING (real data only)
+// ══════════════════════════════════════════════════
+function saveHistoryReading() {
+  var now = Date.now();
+  if (now - lastRecordTime < RECORD_INTERVAL) return;
+  if (!useRealData || !prevVals.v || prevVals.v === 0) return;
+
+  lastRecordTime = now;
+  var dt = new Date();
+  var ts = dt.getFullYear() + '-' +
+    (dt.getMonth()+1).toString().padStart(2,'0') + '-' +
+    dt.getDate().toString().padStart(2,'0') + ' ' +
+    dt.getHours().toString().padStart(2,'0') + ':' +
+    dt.getMinutes().toString().padStart(2,'0');
+
+  var eff = prevVals.ir > 0
+    ? Math.min(100, (prevVals.p / (prevVals.ir * 1.6)) * 100).toFixed(1)
+    : '0.0';
+
+  recordedHistory.push({
+    time:ts, voltage:prevVals.v||0, current:prevVals.a||0, power:prevVals.p||0,
+    irradiance:prevVals.ir||0, temperature:prevVals.tmp||0, efficiency:eff
+  });
+
+  var maxRec = Math.ceil(7*24*60 / (RECORD_INTERVAL/60000));
+  if (recordedHistory.length > maxRec) recordedHistory.shift();
+  updateHistoryTable();
+}
+
+setInterval(saveHistoryReading, 30000);
+setTimeout(saveHistoryReading, 5000);
+
+// ══════════════════════════════════════════════════
+//  ALERT ENGINE
+// ══════════════════════════════════════════════════
+function nowTS() {
+  return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+function triggerAlert(id, type, icon, iconBg, title, desc, badge, badgeColor) {
+  var now = Date.now();
+  if (alertCooldown[id] && (now - alertCooldown[id]) < COOLDOWN_MS) return;
+  alertCooldown[id] = now;
+  alertHistory.unshift({ id:id, type:type, icon:icon, iconBg:iconBg, title:title,
+    desc:desc, badge:badge, badgeColor:badgeColor, time:nowTS() });
+  if (alertHistory.length > 50) alertHistory.pop();
+  renderAlertFeed();
+  updateAlertNavBadge();
+}
+
+function renderAlertFeed() {
+  var feed = document.getElementById('alert-feed');
+  if (!feed) return;
+  if (alertHistory.length === 0) {
+    feed.innerHTML = '<div style="text-align:center;padding:32px 0;color:#475569;font-size:13px">' +
+      '<i class="ti ti-shield-check" style="font-size:32px;display:block;margin-bottom:8px;color:#4ade80"></i>' +
+      'Connect ESP32 to start real-time alert monitoring</div>';
+    return;
+  }
+  var h = '';
+  alertHistory.slice(0,15).forEach(function(a) {
+    h += '<div class="afeed-item ' + a.type + '">' +
+      '<div class="afeed-icon" style="background:' + a.iconBg + '">' +
+        '<i class="ti ti-' + a.icon + '" style="color:' + a.badgeColor + '"></i></div>' +
+      '<div style="flex:1">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div class="afeed-title">' + a.title + '</div>' +
+          '<span class="afeed-badge" style="background:' + a.iconBg + ';color:' + a.badgeColor + '">' + a.badge + '</span></div>' +
+        '<div class="afeed-desc">' + a.desc + '</div>' +
+        '<div class="afeed-time">' + a.time + ' - Site A - Panel 1</div>' +
+      '</div></div>';
+  });
+  feed.innerHTML = h;
+  var lbl = document.getElementById('alert-count-label');
+  if (lbl) lbl.textContent = alertHistory.length + ' alert' + (alertHistory.length!==1?'s':'') + ' logged';
+}
+
+function updateAlertNavBadge() {
+  var n = Object.keys(alertCooldown).length;
+  var el = document.querySelector('#nav-alerts span');
+  if (el) {
+    el.textContent = n > 0 ? n : 'OK';
+    el.style.background = n > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(22,163,74,0.15)';
+    el.style.color       = n > 0 ? '#f87171' : '#4ade80';
+  }
+}
+
+function updateStatusBar(vS, aS, pS, tS) {
+  var map = { 'ast-voltage':vS, 'ast-current':aS, 'ast-power':pS, 'ast-temp':tS };
+  Object.keys(map).forEach(function(id) {
+    var el = document.getElementById(id); if (!el) return;
+    el.className = 'astatus ' + (map[id].cls||'off');
+    var sp = el.querySelector('span');
+    if (sp) sp.textContent = map[id].label||'--';
+  });
+}
+
+function clearAllAlerts() {
+  alertHistory = []; alertCooldown = {};
+  renderAlertFeed(); updateAlertNavBadge();
+  updateStatusBar({cls:'off',label:'--'},{cls:'off',label:'--'},{cls:'off',label:'--'},{cls:'off',label:'--'});
+}
+
+function checkAlerts(v, a, p, irr, temp) {
+  if (!useRealData) return;
+  var hour    = new Date().getHours();
+  var isNoon  = hour >= 10 && hour <= 15;
+  var dayTime = irr > 100;
+
+  // Voltage
+  var vStat;
+  if (v < 11 && dayTime) {
+    triggerAlert('v-low-day','warn','bolt','rgba(245,158,11,0.15)','Low Voltage  -  Daytime Mismatch',
+      'Voltage '+v.toFixed(2)+'V is low despite irradiance of '+irr.toFixed(0)+' W/m2. Check wiring.','WARN','#f59e0b');
+    vStat = {cls:'warn',label:v.toFixed(1)+'V LOW'};
+  } else if (v > 23) {
+    triggerAlert('v-high','warn','plug-x','rgba(245,158,11,0.15)','High Voltage  -  Disconnected Load',
+      'Voltage '+v.toFixed(2)+'V exceeds 23V. Load may be disconnected from panel.','WARN','#f59e0b');
+    vStat = {cls:'warn',label:v.toFixed(1)+'V HIGH'};
+  } else if (v >= 17 && v <= 22.5) {
+    delete alertCooldown['v-low-day']; delete alertCooldown['v-high'];
+    vStat = {cls:'ok',label:v.toFixed(1)+'V OK'};
+  } else { vStat = {cls:'warn',label:v.toFixed(1)+'V'}; }
+
+  // Current
+  var aStat;
+  if (a > 2.0) {
+    triggerAlert('a-high','err','bolt','rgba(239,68,68,0.15)','Overcurrent Warning',
+      'Current '+a.toFixed(2)+'A exceeds 2.0A maximum. Check for short circuit.','CRIT','#f87171');
+    aStat = {cls:'err',label:a.toFixed(2)+'A HIGH'};
+  } else if (a >= 0.1 && a <= 1.75) {
+    delete alertCooldown['a-high'];
+    aStat = {cls:'ok',label:a.toFixed(2)+'A OK'};
+  } else { aStat = {cls:'warn',label:a.toFixed(2)+'A'}; }
+
+  // Power
+  var pStat;
+  if (p > 32) {
+    triggerAlert('p-err','err','alert-triangle','rgba(239,68,68,0.15)','Power Sensor Error',
+      'Power '+p.toFixed(1)+'W exceeds 32W panel maximum. Sensor calibration fault.','ERROR','#f87171');
+    pStat = {cls:'err',label:p.toFixed(0)+'W ERR'};
+  } else if (p < 5 && isNoon) {
+    triggerAlert('p-low-noon','warn','sun-off','rgba(245,158,11,0.15)','Low Power at Noon',
+      'Power '+p.toFixed(1)+'W is below 5W during peak hours. Check for shading or soiling.','WARN','#f59e0b');
+    pStat = {cls:'warn',label:p.toFixed(0)+'W LOW'};
+  } else if (p >= 15 && p <= 27) {
+    delete alertCooldown['p-err']; delete alertCooldown['p-low-noon'];
+    pStat = {cls:'ok',label:p.toFixed(0)+'W OK'};
+  } else { pStat = {cls:'ok',label:p.toFixed(0)+'W'}; }
+
+  // Temperature
+  var tStat;
+  if (temp > 70) {
+    triggerAlert('t-overheat','err','flame','rgba(239,68,68,0.15)','Critical Overheat',
+      'Panel temp '+temp.toFixed(1)+'\u00b0C exceeded 70\u00b0C. Check ventilation immediately.','CRIT','#f87171');
+    tStat = {cls:'err',label:temp.toFixed(1)+'C HOT'};
+  } else if (temp >= 35 && temp <= 55) {
+    delete alertCooldown['t-overheat'];
+    tStat = {cls:'ok',label:temp.toFixed(1)+'C OK'};
+  } else if (temp > 55 && temp <= 70) {
+    tStat = {cls:'warn',label:temp.toFixed(1)+'C WARM'};
+  } else { tStat = {cls:'off',label:temp.toFixed(1)+'C'}; }
+
+  updateStatusBar(vStat, aStat, pStat, tStat);
+
+  var allOK = vStat.cls==='ok' && aStat.cls==='ok' && pStat.cls==='ok' && tStat.cls==='ok';
+  if (allOK && !window._firstOKLogged) {
+    window._firstOKLogged = true;
+    alertHistory.unshift({ id:'connected-ok', type:'info', icon:'shield-check',
+      iconBg:'rgba(59,130,246,0.15)', title:'ESP32 Connected  -  All Normal',
+      desc:'All parameters within thresholds. Monitoring active.',
+      badge:'OK', badgeColor:'#60a5fa', time:nowTS() });
+    renderAlertFeed(); updateAlertNavBadge();
+  }
+  if (!allOK) window._firstOKLogged = false;
+}
+
+// ══════════════════════════════════════════════════
+//  SITES ENGINE
+// ══════════════════════════════════════════════════
+function renderSites() {
+  var list = document.getElementById('sites-list');
+  if (!list) return;
+
+  var totalPanels = sites.reduce(function(s,x){ return s+x.panels; },0);
+  var lbl = document.getElementById('sites-count-label');
+  if (lbl) lbl.textContent = sites.length+' site'+(sites.length>1?'s':'')+' - '+totalPanels+' panel'+(totalPanels>1?'s':'');
+
+  if (sites.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:#475569;font-size:13px">' +
+      'No sites yet. Click Add site to begin.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  sites.forEach(function(site) {
+    var isConn  = site.isActive && useRealData;
+    var statusColor = isConn ? '#4ade80' : '#f59e0b';
+    var sb      = isConn ? 'rgba(74,222,128,0.12)' : 'rgba(245,158,11,0.12)';
+    var sl      = isConn ? 'Online' : (site.isActive ? 'Connecting' : 'Offline');
+    var cls     = isConn ? 'site-card-wrap active-site' : 'site-card-wrap offline-site';
+    var power   = isConn ? (+site.lastP).toFixed(1)+' W' : '0.0 W';
+    var temp    = isConn ? (+site.lastTemp).toFixed(1)+' C' : '0.0 C';
+    var effDisp = isConn ? (+site.lastEff).toFixed(1)+'%' : '0.0%';
+    var kwh     = (site.energyToday/1000).toFixed(3)+' kWh';
+    var ptW     = site.panels * 20;
+    var dots    = '';
+    for (var di=0; di<site.panels; di++) {
+      dots += '<span style="display:inline-block;width:12px;height:16px;border-radius:2px;margin-right:3px;background:'+(isConn?'#f59e0b':'rgba(255,255,255,0.1)')+'"></span>';
+    }
+
+    var card = document.createElement('div');
+    card.className = cls;
+    card.id = 'site-card-' + site.id;
+    card.style.cssText = 'background:var(--bg2);border:0.5px solid '+(isConn?'rgba(74,222,128,0.35)':'rgba(255,255,255,0.07)')+';border-radius:14px;padding:16px;margin-bottom:12px';
+
+    var sid = site.id;
+    var btnStyle = 'flex:1;padding:6px;border-radius:8px;border:0.5px solid rgba(255,255,255,0.1);background:transparent;color:#64748b;font-size:11px;cursor:pointer;font-family:inherit';
+    var editBtn   = '<button onclick="editSite(\'' + sid + '\')" style="' + btnStyle + '"><i class="ti ti-edit"></i> Edit</button>';
+    var liveBtn   = site.isActive ? '<button onclick="showPage(\'live\')" style="' + btnStyle + '"><i class="ti ti-activity"></i> Live</button>' : '';
+    var deleteBtn = !site.isActive ? '<button onclick="deleteSite(\'' + sid + '\')" style="flex:1;padding:6px;border-radius:8px;border:0.5px solid rgba(239,68,68,0.2);background:rgba(239,68,68,0.08);color:#f87171;font-size:11px;cursor:pointer;font-family:inherit"><i class="ti ti-trash"></i> Remove</button>' : '';
+
+    card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">' +
+        '<div>' +
+          '<div style="font-size:15px;font-weight:600;color:#f1f5f9">'+site.name+'</div>' +
+          '<div style="font-size:11px;color:#475569;margin-top:3px;font-family:monospace">'+site.panels+' panel'+(site.panels>1?'s':'')+' - '+ptW+'W - '+site.panelArea+'m2 - '+(site.location||'')+'</div>' +
+        '</div>' +
+        '<span style="font-size:11px;padding:3px 9px;border-radius:10px;font-family:monospace;background:'+sb+';color:'+statusColor+'>"+sl+"</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px">' +
+        '<div style="background:var(--bg);border-radius:8px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.06em">Power now</div>' +
+          '<div style="font-size:15px;font-weight:700;font-family:monospace;color:#c084fc;margin-top:3px" id="ss-power-'+site.id+'">'+power+'</div></div>' +
+        '<div style="background:var(--bg);border-radius:8px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.06em">Today energy</div>' +
+          '<div style="font-size:15px;font-weight:700;font-family:monospace;color:#4ade80;margin-top:3px" id="ss-kwh-'+site.id+'">'+kwh+'</div></div>' +
+        '<div style="background:var(--bg);border-radius:8px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.06em">Temperature</div>' +
+          '<div style="font-size:15px;font-weight:700;font-family:monospace;color:#f87171;margin-top:3px" id="ss-temp-'+site.id+'">'+temp+'</div></div>' +
+        '<div style="background:var(--bg);border-radius:8px;padding:8px 10px">' +
+          '<div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:0.06em">Efficiency</div>' +
+          '<div style="font-size:15px;font-weight:700;font-family:monospace;color:#f59e0b;margin-top:3px" id="ss-eff-'+site.id+'">'+effDisp+'</div></div>' +
+      '</div>' +
+      '<div style="padding:8px 10px;background:var(--bg);border-radius:8px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">' +
+        '<span>'+dots+'</span>' +
+        '<span style="font-size:11px;color:#475569;font-family:monospace">'+site.panels+' x 20W panel'+(site.panels>1?'s':'')+'</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px">'+editBtn+liveBtn+deleteBtn+'</div>';
+
+    list.appendChild(card);
+  });
+}
+
+function updatePrimarySiteStats(v, a, p, irr, tmp, eff) {
+  var primary = sites.find(function(s){ return s.isActive; });
+  if (!primary) return;
+  primary.lastV=v; primary.lastA=a; primary.lastP=p;
+  primary.lastIrr=irr; primary.lastTemp=tmp; primary.lastEff=eff;
+  primary.connected = useRealData;
+
+  var now = Date.now();
+  if (lastEnergyTime > 0 && useRealData && p > 0) {
+    energyAccumulator += p * ((now - lastEnergyTime) / 3600000);
+    primary.energyToday = energyAccumulator;
+  }
+  lastEnergyTime = now;
+  var d = new Date();
+  if (d.getHours()===0 && d.getMinutes()===0) { energyAccumulator=0; primary.energyToday=0; }
+
+  var set = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+  set('ss-power-'+primary.id,  useRealData ? p.toFixed(1)+' W'      : '0.0 W');
+  set('ss-kwh-'+primary.id,    (primary.energyToday/1000).toFixed(3)+' kWh');
+  set('ss-temp-'+primary.id,   useRealData ? tmp.toFixed(1)+' C'    : '0.0 C');
+  set('ss-eff-'+primary.id,    useRealData ? eff.toFixed(1)+'%'     : '0.0%');
+}
+
+function openAddSiteModal() {
+  editingSiteId=null; selectedPanels=1;
+  var ids = ['ms-name','ms-loc','ms-ip'];
+  ids.forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+  var ar = document.getElementById('ms-area'); if(ar) ar.value='1.6';
+  var mt = document.getElementById('modal-title'); if(mt) mt.textContent='Add new site';
+  var sb = document.getElementById('modal-save-btn'); if(sb) sb.textContent='Save site';
+  var me = document.getElementById('modal-err'); if(me) me.style.display='none';
+  document.querySelectorAll('.pbtn').forEach(function(b){ b.classList.remove('on'); });
+  var first = document.querySelector('.pbtn'); if(first) first.classList.add('on');
+  var modal = document.getElementById('add-site-modal');
+  if (modal) { modal.style.display='flex'; }
+}
+
+function editSite(id) {
+  var site = sites.find(function(s){ return s.id===id; });
+  if (!site) return;
+  editingSiteId = id; selectedPanels = site.panels;
+  var set = function(eid,v){ var el=document.getElementById(eid); if(el) el.value=v; };
+  set('ms-name', site.name); set('ms-loc', site.location||'');
+  set('ms-ip', site.ip||''); set('ms-area', site.panelArea||1.6);
+  var mt = document.getElementById('modal-title'); if(mt) mt.textContent='Edit site';
+  var sb = document.getElementById('modal-save-btn'); if(sb) sb.textContent='Update site';
+  document.querySelectorAll('.pbtn').forEach(function(b){
+    b.classList.remove('on');
+    if (parseInt(b.textContent)===site.panels) b.classList.add('on');
+  });
+  var modal = document.getElementById('add-site-modal');
+  if (modal) { modal.style.display='flex'; }
+}
+
+function closeAddSiteModal() {
+  var modal = document.getElementById('add-site-modal');
+  if (modal) modal.style.display = 'none';
+  editingSiteId = null;
+}
+
+function selectPanels(btn, count) {
+  document.querySelectorAll('.pbtn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  selectedPanels = count;
+}
+
+function saveSite() {
+  var name = (document.getElementById('ms-name').value||'').trim();
+  var loc  = (document.getElementById('ms-loc').value||'').trim();
+  var ip   = (document.getElementById('ms-ip').value||'').trim();
+  var area = parseFloat(document.getElementById('ms-area').value)||1.6;
+  var errEl = document.getElementById('modal-err');
+  if (!name) {
+    if(errEl){ errEl.textContent='Please enter a site name.'; errEl.style.display='block'; }
+    return;
+  }
+  if (editingSiteId) {
+    var site = sites.find(function(s){ return s.id===editingSiteId; });
+    if (site) { site.name=name; site.location=loc; site.panels=selectedPanels; site.panelArea=area; if(ip) site.ip=ip; }
+  } else {
+    sites.push({ id:'site-'+Date.now(), name:name, location:loc, panels:selectedPanels,
+      panelArea:area, ip:ip||'', isActive:false, energyToday:0,
+      lastV:0, lastA:0, lastP:0, lastIrr:0, lastTemp:0, lastEff:0, connected:false });
+  }
+  closeAddSiteModal();
+  renderSites();
+}
+
+function deleteSite(id) {
+  sites = sites.filter(function(s){ return s.id!==id; });
+  renderSites();
+}
+
+function initSites() {
+  energyAccumulator=0; lastEnergyTime=0;
+  renderSites();
+}
+
+// ══════════════════════════════════════════════════
+//  LIVE DATA (UI UPDATE)
+// ══════════════════════════════════════════════════
+function updateUI(v, a, p, ir, tmp) {
+  var eff = ir > 0 ? Math.min(100,(p/(ir*1.6))*100).toFixed(1) : '0.0';
+
+  var set = function(id,val){ var el=document.getElementById(id); if(el) el.textContent=val; };
+  set('m-v',  (+v).toFixed(2));
+  set('m-a',  (+a).toFixed(2));
+  set('m-p',  (+p).toFixed(1));
+  set('m-i',  (+ir).toFixed(0));
+  set('m-t',  (+tmp).toFixed(1));
+  set('m-eff',eff+'%');
+
+  updatePrimarySiteStats(+v, +a, +p, +ir, +tmp, +eff);
+
+  function setTrend(id, cur, prev) {
+    var el=document.getElementById(id); if(!el) return;
+    if (prev===undefined){ el.textContent=' - '; el.className='mc-trend neu'; return; }
+    var d=cur-prev;
+    if (Math.abs(d)<0.02){ el.textContent=' -  stable'; el.className='mc-trend neu'; return; }
+    el.textContent=(d>0?'UP +':'DN ')+Math.abs(d).toFixed(2);
+    el.className='mc-trend '+(d>0?'up':'dn');
+  }
+  setTrend('t-v',  +v,   prevVals.v);
+  setTrend('t-a',  +a,   prevVals.a);
+  setTrend('t-p',  +p,   prevVals.p);
+  setTrend('t-i',  +ir,  prevVals.ir);
+  setTrend('t-t',  +tmp, prevVals.tmp);
+  prevVals = { v:+v, a:+a, p:+p, ir:+ir, tmp:+tmp };
+
+  if (chartsInited && useRealData) {
+    liveD.push(+p); liveL.push(''); liveVD.push(+v); liveAD.push(+a);
+    if (liveD.length>30){ liveD.shift(); liveL.shift(); liveVD.shift(); liveAD.shift(); }
+    if(liveChart){ liveChart.data.labels=liveL; liveChart.data.datasets[0].data=liveD; liveChart.update('none'); }
+    if(liveVC){ liveVC.data.labels=liveL; liveVC.data.datasets[0].data=liveVD; liveVC.data.datasets[1].data=liveAD; liveVC.update('none'); }
+    var avgP=liveD.reduce(function(x,y){return x+y;},0)/liveD.length;
+    var al=document.getElementById('live-avg'); if(al) al.textContent='avg '+avgP.toFixed(0)+'W';
+  }
+
+  readCount++;
+  var rc=document.getElementById('read-count'); if(rc) rc.textContent=readCount;
+  var now=new Date();
+  var lu=document.getElementById('last-update-ts');
+  if(lu){ lu.textContent='Updated '+now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' - ESP32'; lu.style.color=''; }
+  var el2=document.getElementById('uptime-val');
+  if(el2){ var e=Math.floor((Date.now()-startTime)/1000); el2.textContent=Math.floor(e/60)+':'+(e%60).toString().padStart(2,'0'); }
+
+  checkAlerts(+v, +a, +p, +ir, +tmp);
+}
+
+function showDisconnected() {
+  useRealData = false;
+  var zeros = { 'm-v':'0.00','m-a':'0.00','m-p':'0.0','m-i':'0','m-t':'0.0','m-eff':'0.0%' };
+  Object.keys(zeros).forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent=zeros[id]; });
+  ['t-v','t-a','t-p','t-i','t-t'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){ el.textContent=' -  disconnected'; el.className='mc-trend neu'; }
+  });
+  updatePrimarySiteStats(0,0,0,0,0,0);
+  var lu=document.getElementById('last-update-ts');
+  if(lu){ lu.textContent='Updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' - disconnected'; lu.style.color='#f87171'; }
+  var li=document.getElementById('live-indicator');
+  if(li){ li.style.background='rgba(239,68,68,0.1)'; li.style.borderColor='rgba(239,68,68,0.3)'; li.style.color='#f87171'; li.innerHTML='<div style="width:5px;height:5px;border-radius:50%;background:#f87171"></div>OFFLINE'; }
+  if(chartsInited){
+    liveD=[]; liveL=[]; liveVD=[]; liveAD=[];
+    if(liveChart){ liveChart.data.labels=[]; liveChart.data.datasets[0].data=[]; liveChart.update('none'); }
+    if(liveVC){ liveVC.data.labels=[]; liveVC.data.datasets[0].data=[]; liveVC.data.datasets[1].data=[]; liveVC.update('none'); }
+    var al=document.getElementById('live-avg'); if(al) al.textContent='avg --W';
+  }
+  updateStatusBar({cls:'off',label:'offline'},{cls:'off',label:'offline'},{cls:'off',label:'offline'},{cls:'off',label:'offline'});
+  window._firstOKLogged = false;
+  prevVals = {};
+}
+
+// ══════════════════════════════════════════════════
+//  TICK LIVE  -  polls server every 2 seconds
+// ══════════════════════════════════════════════════
+function tickLive() {
+  fetch(SERVER_URL, { signal: AbortSignal.timeout(1800) })
+    .then(function(res){ return res.json(); })
+    .then(function(d) {
+      if (d && d.connected && d.voltage !== undefined) {
+        useRealData = true;
+        var li = document.getElementById('live-indicator');
+        if (li) { li.style.background='rgba(74,222,128,0.1)'; li.style.borderColor='rgba(74,222,128,0.25)'; li.style.color='#4ade80'; li.innerHTML='<div style="width:5px;height:5px;border-radius:50%;background:#4ade80;animation:blink 1.4s infinite"></div>LIVE'; }
+        var lu = document.getElementById('last-update-ts'); if(lu) lu.style.color='';
+        updateUI(d.voltage, d.current, d.power, d.irradiance, d.temperature);
+      } else {
+        showDisconnected();
+      }
+    })
+    .catch(function() { showDisconnected(); });
+}
+
+tickLive();
+setInterval(tickLive, 2000);
+
+// Allow pressing Enter on login fields to submit
+document.addEventListener('DOMContentLoaded', function() {
+  var loginInputs = [document.getElementById('inp-email'), document.getElementById('inp-pass')];
+  loginInputs.forEach(function(el) {
+    if (el) el.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+  });
+});
+</script>
+</body>
+</html>
